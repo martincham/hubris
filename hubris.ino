@@ -9,24 +9,31 @@
 #define IN1CHANNEL 1
 #define IN2CHANNEL 2
 
-#define SLEEP_TIME 4 // 1 minute
-#define FAST_SPEED 150
+#define SLEEP_TIME 60 // seconds
+#define FAST_SPEED 180
 #define SLOW_SPEED 20
 
-#include <PWMOutESP32.h>
+#include <PWMOutESP32.h> //i dont know why i still need this but it breaks without
+
 PWMOutESP32 pwm;
 
-#include "RTClib.h"
+#include "RTClib.h"  // I don't know why I need this anymore, but it breaks without it
 RTC_DS3231 rtc;
+
+#include <Adafruit_I2CDevice.h>
+#include "NTP.h"
+
 
 int botSwitch = 1;  // 0 when triggered
 int topSwitch = 1;  // 0 when triggered
 
-int direction = 1;  //1 is up, -1 down
+int direction = 0;  //1 is up, -1 down
 unsigned long previousMillis = 0;
 const long interval = 20;
 
-volatile long motorPosition = 0;
+unsigned long long uS_TO_S_FACTOR = 1000000; /* Conversion factor for micro seconds to seconds */
+
+volatile long motorPosition = -35000;
 int diffPosition;
 int prevPosition;
 int resolution = 8;
@@ -36,9 +43,9 @@ void IRAM_ATTR doEncoderA();
 void IRAM_ATTR doEncoderB();
 void insideLoop();
 void printTime();
-void stop();
-void goUp(int fast = 0):
-void goDown(int fast = 0);
+void stopMotor();
+void goUp(int slow =  0);
+void goDown(int slow = 0);
 
 
 void setup() {
@@ -55,6 +62,7 @@ void setup() {
   ledcSetup(IN1CHANNEL, frequency, resolution);
   ledcAttachPin(IN2, IN2CHANNEL);
   ledcSetup(IN2CHANNEL, frequency, resolution);
+  Serial.println("Setup");
 
 
   // initializing the rtc
@@ -91,32 +99,49 @@ void insideLoop(){
   Serial.print(diffPosition);
   Serial.print(", ");
 
+  // awake from sleep
+  if (direction == 0 && topSwitch == 0){
+    direction = -1; 
+    Serial.println("Awoke, going down.");
+  }
+  else if (direction == 0 && botSwitch == 0){
+    direction == 1;
+    Serial.println("Awoke, going up.");
+  }
+
   if (topSwitch == 0 && direction == 1) {
     // set down
     direction = -1;
-    ledcWrite(IN1CHANNEL, 0);
-    ledcWrite(IN2CHANNEL, 0);
+    stopMotor();
     Serial.println("hit top");
     motorPosition = 0;
     prevPosition = 0;
-    delay(SLEEP_TIME);
+    delay(2000);
+    /*
+    esp_sleep_enable_timer_wakeup(SLEEP_TIME * uS_TO_S_FACTOR);
+    Serial.println("Entering deep sleep mode...");
+    esp_deep_sleep_start();  // Start the deep sleep mode
+    */
   }
-  if (botSwitch == 0 && direction == -1) {
+  else if (botSwitch == 0 && direction == -1) {
     //set up
     direction = 1;
-    ledcWrite(IN1CHANNEL, 0);
-    ledcWrite(IN2CHANNEL, 0);
+    stopMotor();
     Serial.println("hit bottom");
-    delay(SLEEP_TIME);
+    delay(2000);
+    /*
+    esp_sleep_enable_timer_wakeup(SLEEP_TIME * uS_TO_S_FACTOR);
+    Serial.println("Entering deep sleep mode...");
+    esp_deep_sleep_start();  // Start the deep sleep mode
+    */
   }
+
   if (direction == 1) {
     // go up
-    ledcWrite(IN1CHANNEL, 0);
-    ledcWrite(IN2CHANNEL, 150);;
-  } else {
+    goUp();
+  } else if (direction == -1) {
     //go down
-    ledcWrite(IN1CHANNEL, 150);
-    ledcWrite(IN2CHANNEL, 0);
+    goDown();
   }
 
   Serial.print("bot=");
@@ -195,29 +220,29 @@ void printTime(){
 
 // MOTOR FUNCTIONS
 
-void stop(){
+void stopMotor(){
   ledcWrite(IN1CHANNEL, 0);
   ledcWrite(IN2CHANNEL, 0);
 }
-void goUp(int fast = 0){
+void goUp(int slow){
   int speed;
-  if( fast == 1) {
-    speed = FAST_SPEED;
-  }
-  else{
+  if( slow == 1) {
     speed = SLOW_SPEED;
   }
-  ledcWrite(IN1CHANNEL, speed);
-  ledcWrite(IN2CHANNEL, 0);
-}
-void goDown(int fast = 0){
-  int speed;
-  if( fast == 1) {
-    speed = FAST_SPEED;
-  }
   else{
-    speed = SLOW_SPEED;
+    speed = FAST_SPEED;
   }
   ledcWrite(IN1CHANNEL, 0);
   ledcWrite(IN2CHANNEL, speed);
+}
+void goDown(int slow){
+  int speed;
+  if( slow == 1) {
+    speed = SLOW_SPEED;
+  }
+  else{
+    speed = FAST_SPEED;
+  }
+  ledcWrite(IN1CHANNEL, speed);
+  ledcWrite(IN2CHANNEL, 0);
 }
