@@ -14,7 +14,7 @@
 // Received from queen bee
 int sleepTime = 2;  // seconds
 int fastSpeed = 100; // PMW out of 255
-int slowSpeed = 30;  // PMW out of 255
+int slowSpeed = 80;  // PMW out of 255
 
 #include <PWMOutESP32.h>  //i dont know why i still need this but it breaks without
 
@@ -143,8 +143,14 @@ void insideLoop() {
   Serial.print(topSwitch);
   Serial.print(", direction=");
   Serial.print(direction);
-  Serial.print(" sleep=");
-  Serial.println(sleepTime);
+  Serial.print(", sleep=");
+  Serial.print(sleepTime);
+  Serial.print(", fast=");
+  Serial.print(fastSpeed);
+  Serial.print(", slow=");
+  Serial.println(slowSpeed);
+
+
 
   
 
@@ -291,4 +297,100 @@ void goDown(int slow) {
   }
   ledcWrite(IN1CHANNEL, speed);
   ledcWrite(IN2CHANNEL, 0);
+}
+
+
+
+
+// Returns true if its time to sleep
+bool shouldSleep(){
+  DateTime now = rtc.now();
+  int dayOfTheWeek = now.dayOfTheWeek();
+  int hour = now.hour();
+
+  // SLEEP SCHEDULE
+  if (dayOfTheWeek < 3){ // Sunday through Tuesday
+    return true;
+  } 
+  if (dayOfTheWeek == 3){ // Wednesday
+    return check12to6(hour);
+  }
+  if (dayOfTheWeek == 4) { // Thursday
+    return check12to6(hour);
+  }
+  if (dayOfTheWeek == 5) { // Friday
+    if (hour < 8 || ( hour >= 9 && hour < 18) || hour >= 20){
+      return 
+    }
+    
+  }
+  if (dayOfTheWeek == 6) { //Saturday
+    if (hour >= 16) { return true;}
+    return check12to6(hour);
+  }
+  return false;
+}
+
+bool check12to6(int hour){
+  if (hour < 12 || hour >= 18){
+      return true;
+    }
+  return false;
+}
+
+long calculateSleepDuration(){
+  DateTime now = rtc.now();
+  int dayOfTheWeek = now.dayOfTheWeek();
+  int hour = now.hour();
+  int minute = now.minute();
+
+  // SLEEP SCHEDULE // * 60 seconds for minutes
+  if (dayOfTheWeek < 3){ // Sunday through Tuesday
+    return 180 * 60; 
+  } 
+  if (dayOfTheWeek == 3){ // Wednesday
+    if ( hour < 9 || hour >= 18) {
+      return 180 * 60; 
+    }
+    if ( hour < 11) {
+      return 60 * 60; 
+    }  
+    if ( hour < 12) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 4) { // Thursday
+    if ( hour < 4 || hour >= 18) {
+      return 180 * 60; 
+    }
+    if ( hour < 6) {
+      return 60 * 60; 
+    }  
+    if ( hour < 7) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 5) { // Friday
+    if ( hour < 4 || hour >= 20) {
+      return 180 * 60; 
+    }
+    if ( hour < 7) {
+      return 60 * 60; 
+    }  
+    if ( hour < 8) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 6) { //Saturday
+    if ( hour < 9 || hour >= 16) {
+      return 180 * 60; 
+    }
+    if ( hour < 11) {
+      return 60 * 60; 
+    }  
+    if ( hour < 12) {
+      return 1 * 60;
+    }
+  }
+  return 1 * 60;
 }

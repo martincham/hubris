@@ -11,15 +11,19 @@
 #define IN1CHANNEL 1
 #define IN2CHANNEL 2
 
-int sleepTime = 60;  // seconds
-int fastSpeed = 120; // PMW out of 255
-int slowSpeed = 50;  // PMW out of 255
+#define SLEEP_TIME 60
+#define FAST_SPEED 140
+#define SLOW_SPEED 100
+
+int sleepTime = SLEEP_TIME;  // seconds
+int fastSpeed = FAST_SPEED; // PMW out of 255
+int slowSpeed = SLOW_SPEED;  // PMW out of 255
 
 #include <PWMOutESP32.h>  //i dont know why i still need this but it breaks without
 
 PWMOutESP32 pwm;
 
-#include "RTClib.h"  // I don't know why I need this anymore, but it breaks without it
+#include "RTClib.h"  
 RTC_DS3231 rtc;
 
 #include <Adafruit_I2CDevice.h>
@@ -29,7 +33,7 @@ RTC_DS3231 rtc;
 int botSwitch = 1;  // 0 when triggered
 int topSwitch = 1;  // 0 when triggered
 
-int direction = 0;  //1 is up, -1 down, 0 not moving
+int direction = 0;  // 1 is up, -1 down, 0 not moving
 unsigned long previousMillis = 0;
 const long interval = 20;
 
@@ -81,13 +85,13 @@ void pingAllPedestals(int direction){
   espNowMessage.b = sleepTime;
   espNowMessage.c = fastSpeed;
   espNowMessage.d = slowSpeed;
-  sendPing(direction);
+  sendPing(espNowMessage);
 }
 
-void sendPing(int direction){
+void sendPing(struct_message espNowMessage){
 
   // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(0, (uint8_t *) &direction, sizeof(direction));
+  esp_err_t result = esp_now_send(0, (uint8_t *) &espNowMessage, sizeof(espNowMessage));
    
   if (result == ESP_OK) {
     Serial.println("Sending confirmed");
@@ -99,7 +103,7 @@ void sendPing(int direction){
 
 
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(9600);
 
   pinMode(TOP, INPUT_PULLUP);  // limit switches
   pinMode(BOTTOM, INPUT_PULLUP);
@@ -112,6 +116,13 @@ void setup() {
   ledcSetup(IN1CHANNEL, frequency, resolution);
   ledcAttachPin(IN2, IN2CHANNEL);
   ledcSetup(IN2CHANNEL, frequency, resolution);
+
+
+
+  if ( shouldSleep() ) {
+    int sleepDuration = calculateSleepDuration();
+    goToDeepSleep(sleepDuration);
+  }
 
 
   // Initilize ESP-NOW
@@ -155,14 +166,11 @@ void setup() {
 
 }
 
-// Handles sleeping
+
 void loop() {
-  /*
-  if ( shouldSleep() ) {
-    int sleepDuration = calculateSleepDuration();
-    goToDeepSlee(sleepDuration);
-  }
-  */
+  
+ 
+
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
@@ -317,25 +325,80 @@ bool shouldSleep(){
     return check12to6(hour);
   }
   if (dayOfTheWeek == 5) { // Friday
-    if (hour >9)
-    return check12to6(hour);
+    if (hour < 8 || ( hour >= 9 && hour < 18) || hour >= 20){
+      return 
+    }
+    
   }
   if (dayOfTheWeek == 6) { //Saturday
-    if (hour > 16) { return true;}
+    if (hour >= 16) { return true;}
     return check12to6(hour);
   }
   return false;
 }
 
 bool check12to6(int hour){
-  if (hour < 12 || hour > 18){
+  if (hour < 12 || hour >= 18){
       return true;
     }
   return false;
 }
 
-void calculateSleepDuration(){
+long calculateSleepDuration(){
   DateTime now = rtc.now();
+  int dayOfTheWeek = now.dayOfTheWeek();
+  int hour = now.hour();
+  int minute = now.minute();
+
+  // SLEEP SCHEDULE // * 60 seconds for minutes
+  if (dayOfTheWeek < 3){ // Sunday through Tuesday
+    return 180 * 60; 
+  } 
+  if (dayOfTheWeek == 3){ // Wednesday
+    if ( hour < 9 || hour >= 18) {
+      return 180 * 60; 
+    }
+    if ( hour < 11) {
+      return 60 * 60; 
+    }  
+    if ( hour < 12) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 4) { // Thursday
+    if ( hour < 4 || hour >= 18) {
+      return 180 * 60; 
+    }
+    if ( hour < 6) {
+      return 60 * 60; 
+    }  
+    if ( hour < 7) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 5) { // Friday
+    if ( hour < 4 || hour >= 20) {
+      return 180 * 60; 
+    }
+    if ( hour < 7) {
+      return 60 * 60; 
+    }  
+    if ( hour < 8) {
+      return 1 * 60;
+    }
+  }
+  if (dayOfTheWeek == 6) { //Saturday
+    if ( hour < 9 || hour >= 16) {
+      return 180 * 60; 
+    }
+    if ( hour < 11) {
+      return 60 * 60; 
+    }  
+    if ( hour < 12) {
+      return 1 * 60;
+    }
+  }
+  return 1 * 60;
 }
 
 // MOTOR FUNCTIONS
