@@ -12,9 +12,9 @@
 #define IN2CHANNEL 2  // PMW Channel
 
 // Received from queen bee
-int sleepTime = 2;  // seconds
-int fastSpeed = 100; // PMW out of 255
-int slowSpeed = 80;  // PMW out of 255
+int sleepTime = 2;    // seconds
+int fastSpeed = 100;  // PMW out of 255
+int slowSpeed = 80;   // PMW out of 255
 
 #include <PWMOutESP32.h>  //i dont know why i still need this but it breaks without
 
@@ -53,10 +53,10 @@ void goDown(int slow = 0);
 
 // ESP-NOW Receiving Code
 typedef struct struct_message {
-  int a; // direction
-  int b; // sleep time
-  int c; // fast speed
-  int d; //slow speed
+  int a;  // direction
+  int b;  // sleep time
+  int c;  // fast speed
+  int d;  //slow speed
 } struct_message;
 
 struct_message espNowMessage;
@@ -96,6 +96,17 @@ void setup() {
   ledcAttachPin(IN2, IN2CHANNEL);
   ledcSetup(IN2CHANNEL, frequency, resolution);
 
+  // initializing the rtc
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC!");
+    Serial.flush();
+    while (1) delay(10);
+  }
+  // Long sleep when gallery is closed. Run here to not setup wifi when unneeded
+  int longSleep = calculateSleepDuration();
+  if (longSleep != 0){
+    goToDeepSleep(longSleep);
+  }
 
   // Set ESP32 as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -106,15 +117,6 @@ void setup() {
   }
   // Register callback function
   esp_now_register_recv_cb(OnDataRecv);
-
-
-  // initializing the rtc
-  if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC!");
-    Serial.flush();
-    while (1) delay(10);
-  }
-
 }
 
 
@@ -152,7 +154,7 @@ void insideLoop() {
 
 
 
-  
+
 
   if (direction == 0) {
     // Wating on ESP-NOW, do nothing until direction is set
@@ -160,7 +162,6 @@ void insideLoop() {
   }
   /*
   if (direction == 0 && topSwitch == 0){
-    // Wating on ESP-NOW, do nothing until direction is set
     direction = -1; 
     Serial.println("Awoke, going down.");
   } 
@@ -196,13 +197,11 @@ void insideLoop() {
 
   if (direction == 1) {
     // go up
-    goUp(1); // go slowly
+    goUp(1);  // go slowly
   } else if (direction == -1) {
     //go down
     goDown();
   }
-
-  
 }
 
 
@@ -299,98 +298,36 @@ void goDown(int slow) {
   ledcWrite(IN2CHANNEL, 0);
 }
 
-
-
-
-// Returns true if its time to sleep
-bool shouldSleep(){
-  DateTime now = rtc.now();
-  int dayOfTheWeek = now.dayOfTheWeek();
-  int hour = now.hour();
-
-  // SLEEP SCHEDULE
-  if (dayOfTheWeek < 3){ // Sunday through Tuesday
-    return true;
-  } 
-  if (dayOfTheWeek == 3){ // Wednesday
-    return check12to6(hour);
-  }
-  if (dayOfTheWeek == 4) { // Thursday
-    return check12to6(hour);
-  }
-  if (dayOfTheWeek == 5) { // Friday
-    if (hour < 8 || ( hour >= 9 && hour < 18) || hour >= 20){
-      return 
-    }
-    
-  }
-  if (dayOfTheWeek == 6) { //Saturday
-    if (hour >= 16) { return true;}
-    return check12to6(hour);
-  }
-  return false;
+void goToDeepSleep(int sleepDuration) {
+  esp_sleep_enable_timer_wakeup(sleepDuration * uS_TO_S_FACTOR);
+  Serial.println("Entering deep sleep mode...");
+  esp_deep_sleep_start();
 }
 
-bool check12to6(int hour){
-  if (hour < 12 || hour >= 18){
-      return true;
-    }
-  return false;
-}
-
-long calculateSleepDuration(){
+// Returns time to sleep, or 0 is shouldn't sleep
+int calculateSleepDuration(){
   DateTime now = rtc.now();
   int dayOfTheWeek = now.dayOfTheWeek();
   int hour = now.hour();
   int minute = now.minute();
 
   // SLEEP SCHEDULE // * 60 seconds for minutes
-  if (dayOfTheWeek < 3){ // Sunday through Tuesday
-    return 180 * 60; 
+  
+  if (dayOfTheWeek >= 3) { // Wednesday through Saturday
+    if ( hour >= 12 && hour <= 18) { // Time to stay awake
+      return 0;
+    }
+    if ( hour <= 8 || hour >= 18) {
+      return 180 * 60; // three hours 
+    }
+    if ( hour < 12) { // sleep until 12
+      int hourUntil12 = 11 - hour;
+      int minuteUntilHour = 59 - minute;
+      return ((hourUntil12 * 60) + minuteUntilHour) * 60;
+    }
+  }
+  else{ // Sunday through Tuesday
+    return 180 * 60; // three hours
   } 
-  if (dayOfTheWeek == 3){ // Wednesday
-    if ( hour < 9 || hour >= 18) {
-      return 180 * 60; 
-    }
-    if ( hour < 11) {
-      return 60 * 60; 
-    }  
-    if ( hour < 12) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 4) { // Thursday
-    if ( hour < 4 || hour >= 18) {
-      return 180 * 60; 
-    }
-    if ( hour < 6) {
-      return 60 * 60; 
-    }  
-    if ( hour < 7) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 5) { // Friday
-    if ( hour < 4 || hour >= 20) {
-      return 180 * 60; 
-    }
-    if ( hour < 7) {
-      return 60 * 60; 
-    }  
-    if ( hour < 8) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 6) { //Saturday
-    if ( hour < 9 || hour >= 16) {
-      return 180 * 60; 
-    }
-    if ( hour < 11) {
-      return 60 * 60; 
-    }  
-    if ( hour < 12) {
-      return 1 * 60;
-    }
-  }
-  return 1 * 60;
+  return 0;
 }

@@ -117,11 +117,16 @@ void setup() {
   ledcAttachPin(IN2, IN2CHANNEL);
   ledcSetup(IN2CHANNEL, frequency, resolution);
 
-
-
-  if ( shouldSleep() ) {
-    int sleepDuration = calculateSleepDuration();
-    goToDeepSleep(sleepDuration);
+  // initializing the rtc
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC!");
+    Serial.flush();
+    while (1) delay(10);
+  }
+  // Long sleep when gallery is closed. Run here to not setup wifi when unneeded
+  int longSleep = calculateSleepDuration();
+  if (longSleep != 0){
+    goToDeepSleep(longSleep);
   }
 
 
@@ -154,23 +159,10 @@ void setup() {
     Serial.println("Failed to add peer");
   
   }
-  
-
-  // initializing the rtc
-  if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC!");
-    Serial.flush();
-    while (1) delay(10);
-  }
-
-
 }
 
 
 void loop() {
-  
- 
-
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
@@ -308,97 +300,33 @@ void goToDeepSleep(int sleepDuration) {
   esp_deep_sleep_start();
 }
 
-// Returns true if its time to sleep
-bool shouldSleep(){
-  DateTime now = rtc.now();
-  int dayOfTheWeek = now.dayOfTheWeek();
-  int hour = now.hour();
 
-  // SLEEP SCHEDULE
-  if (dayOfTheWeek < 3){ // Sunday through Tuesday
-    return true;
-  } 
-  if (dayOfTheWeek == 3){ // Wednesday
-    return check12to6(hour);
-  }
-  if (dayOfTheWeek == 4) { // Thursday
-    return check12to6(hour);
-  }
-  if (dayOfTheWeek == 5) { // Friday
-    if (hour < 8 || ( hour >= 9 && hour < 18) || hour >= 20){
-      return 
-    }
-    
-  }
-  if (dayOfTheWeek == 6) { //Saturday
-    if (hour >= 16) { return true;}
-    return check12to6(hour);
-  }
-  return false;
-}
-
-bool check12to6(int hour){
-  if (hour < 12 || hour >= 18){
-      return true;
-    }
-  return false;
-}
-
-long calculateSleepDuration(){
+// Returns time to sleep, or 0 is shouldn't sleep
+int calculateSleepDuration(){
   DateTime now = rtc.now();
   int dayOfTheWeek = now.dayOfTheWeek();
   int hour = now.hour();
   int minute = now.minute();
 
   // SLEEP SCHEDULE // * 60 seconds for minutes
-  if (dayOfTheWeek < 3){ // Sunday through Tuesday
-    return 180 * 60; 
+  
+  if (dayOfTheWeek >= 3) { // Wednesday through Saturday
+    if ( hour >= 12 && hour <= 18) { // Time to stay awake
+      return 0;
+    }
+    if ( hour <= 8 || hour >= 18) {
+      return 180 * 60; // three hours 
+    }
+    if ( hour < 12) { // sleep until 12
+      int hourUntil12 = 11 - hour;
+      int minuteUntilHour = 59 - minute;
+      return ((hourUntil12 * 60) + minuteUntilHour) * 60;
+    }
+  }
+  else{ // Sunday through Tuesday
+    return 180 * 60; // three hours
   } 
-  if (dayOfTheWeek == 3){ // Wednesday
-    if ( hour < 9 || hour >= 18) {
-      return 180 * 60; 
-    }
-    if ( hour < 11) {
-      return 60 * 60; 
-    }  
-    if ( hour < 12) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 4) { // Thursday
-    if ( hour < 4 || hour >= 18) {
-      return 180 * 60; 
-    }
-    if ( hour < 6) {
-      return 60 * 60; 
-    }  
-    if ( hour < 7) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 5) { // Friday
-    if ( hour < 4 || hour >= 20) {
-      return 180 * 60; 
-    }
-    if ( hour < 7) {
-      return 60 * 60; 
-    }  
-    if ( hour < 8) {
-      return 1 * 60;
-    }
-  }
-  if (dayOfTheWeek == 6) { //Saturday
-    if ( hour < 9 || hour >= 16) {
-      return 180 * 60; 
-    }
-    if ( hour < 11) {
-      return 60 * 60; 
-    }  
-    if ( hour < 12) {
-      return 1 * 60;
-    }
-  }
-  return 1 * 60;
+  return 0;
 }
 
 // MOTOR FUNCTIONS
