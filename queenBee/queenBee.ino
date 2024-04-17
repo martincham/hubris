@@ -52,8 +52,10 @@ void printTime();
 void stopMotor();
 void goUp(int slow = 0);
 void goDown(int slow = 0);
+void goToDeepSleep(int sleepDuration);
+int calculateSleepDuration();
 
-// ESP NOW SENDING STUFF - yellow - master
+// ESP NOW SENDING STUFF - yellow pedestal - master
 uint8_t broadcastAddress1[] = { 0x7C, 0xDF, 0xA1, 0xF9, 0x06, 0x14 };  //red
 uint8_t broadcastAddress2[] = { 0x7C, 0xDF, 0xA1, 0xF8, 0xFC, 0x40 };  //blue
 uint8_t broadcastAddress3[] = { 0x7C, 0xDF, 0xA1, 0xF8, 0xFB, 0xE4 };  //green
@@ -294,6 +296,7 @@ void printTime() {
   Serial.println();
 }
 
+// sleepDuration = minutes
 void goToDeepSleep(int sleepDuration) {
   esp_sleep_enable_timer_wakeup(sleepDuration * uS_TO_S_FACTOR);
   Serial.println("Entering deep sleep mode...");
@@ -301,7 +304,7 @@ void goToDeepSleep(int sleepDuration) {
 }
 
 
-// Returns time to sleep, or 0 is shouldn't sleep
+// Returns minutes to sleep, or 0 if shouldn't sleep
 int calculateSleepDuration(){
   DateTime now = rtc.now();
   int dayOfTheWeek = now.dayOfTheWeek();

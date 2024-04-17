@@ -49,9 +49,12 @@ void printTime();
 void stopMotor();
 void goUp(int slow = 0);
 void goDown(int slow = 0);
+void goToDeepSleep(int sleepDuration);
+int calculateSleepDuration();
 
 
-// ESP-NOW Receiving Code
+
+// ESP-NOW Receiving Code - red, blue, green pedestals
 typedef struct struct_message {
   int a;  // direction
   int b;  // sleep time
@@ -104,6 +107,7 @@ void setup() {
   }
   // Long sleep when gallery is closed. Run here to not setup wifi when unneeded
   int longSleep = calculateSleepDuration();
+  Serial.println(longSleep);
   if (longSleep != 0){
     goToDeepSleep(longSleep);
   }
@@ -297,14 +301,15 @@ void goDown(int slow) {
   ledcWrite(IN1CHANNEL, speed);
   ledcWrite(IN2CHANNEL, 0);
 }
-
-void goToDeepSleep(int sleepDuration) {
+// sleepDuration = minutes
+void goToDeepSleep(int sleepDuration) { 
   esp_sleep_enable_timer_wakeup(sleepDuration * uS_TO_S_FACTOR);
-  Serial.println("Entering deep sleep mode...");
+  Serial.print("Entering deep sleep mode for seconds:");
+  Serial.println(sleepDuration);
   esp_deep_sleep_start();
 }
 
-// Returns time to sleep, or 0 is shouldn't sleep
+// Returns minutes to sleep, or 0 if shouldn't sleep
 int calculateSleepDuration(){
   DateTime now = rtc.now();
   int dayOfTheWeek = now.dayOfTheWeek();
