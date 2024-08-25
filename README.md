@@ -2,7 +2,7 @@ ESP32-S3 Code that runs these motorized pedestals.
 
 University of Georgia MFA in Studio Art Thesis Project
 
-
+The sound is good :) Turn up the volume.
 
 https://github.com/user-attachments/assets/4496093b-284b-4d7e-bc05-8807264797bd
 
