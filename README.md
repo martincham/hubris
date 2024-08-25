@@ -1,9 +1,11 @@
-ESP32-S3 Code that runs these motorized pedestals.
+## Hubris: my University of Georgia MFA in Studio Art thesis project
 
-University of Georgia MFA in Studio Art Thesis Project
+This directory contains the ESP32-S3 code in C++ that runs these motorized pedestals, as well as the written paper that accompanied this project.
 
-_The sound is good :) Turn up the volume._
+_The video sound is good :) Turn up the volume!_
 
 https://github.com/user-attachments/assets/4496093b-284b-4d7e-bc05-8807264797bd
 
 ![Blurry Pedestal](assets/hubrisBlurSmall.jpg)
+
+![Inside Mechanics](assets/insideView.JPG)
