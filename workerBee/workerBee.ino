@@ -96,12 +96,12 @@ void setup()
   ledcAttachPin(IN2, IN2CHANNEL);
   ledcSetup(IN2CHANNEL, frequency, resolution);
 
-  // initializing the rtc
+  // initializing the RTC
   if (!rtc.begin())
   {
     Serial.println("Couldn't find RTC!");
     Serial.flush();
-    while (1)
+    while (1) // if no RTC, don't run
       delay(10);
   }
   // Long sleep when gallery is closed. Run here to not setup wifi when unneeded
